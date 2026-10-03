@@ -1,0 +1,76 @@
+@import "#app/shared/styles/page.css";
+
+.signin-wrap {
+  padding: var(--space-16) var(--space-5);
+}
+
+.signin-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-8);
+  align-items: start;
+}
+
+.signin-grid h1 {
+  font-size: var(--text-3xl);
+}
+
+.signin-demo .card-body {
+  padding: 0;
+}
+
+.signin-account {
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+}
+
+.signin-account + .signin-account {
+  border-top: 1px solid var(--rule);
+}
+
+.signin-account dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-0-5) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.signin-account dt {
+  color: var(--ink-soft);
+}
+
+.signin-account dd {
+  margin: 0;
+  min-width: 0;
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.signin-account > .stack {
+  min-width: 0;
+}
+
+@media (max-width: 48rem) {
+  .signin-wrap {
+    padding: var(--space-8) var(--space-4);
+  }
+
+  .signin-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.signin-account > button {
+  flex: none;
+  white-space: nowrap;
+}
+
+@media (max-width: 30rem) {
+  .signin-account {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+}

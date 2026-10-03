@@ -1,0 +1,68 @@
+@import "#app/shared/styles/email.css";
+
+.email.receipt .brand {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #b3401c;
+}
+
+.email.receipt .pickup {
+  margin: 20px 0;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: #fbf1ec;
+  color: #3b2219;
+}
+
+.email.receipt table.lines {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+
+.email.receipt table.lines td {
+  padding: 10px 0;
+  border-bottom: 1px solid #ece7e4;
+  vertical-align: top;
+}
+
+.email.receipt td.amount {
+  text-align: right;
+  white-space: nowrap;
+  padding-left: 16px;
+}
+
+.email.receipt .choices {
+  display: block;
+  font-size: 14px;
+  color: #6b625e;
+}
+
+.email.receipt table.totals {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.email.receipt table.totals td {
+  padding: 4px 0;
+}
+
+.email.receipt tr.total td {
+  padding-top: 10px;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.email.receipt .button {
+  display: inline-block;
+  margin: 20px 0 8px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  background: #b3401c;
+  color: #ffffff;
+  font-weight: 600;
+  text-decoration: none;
+}

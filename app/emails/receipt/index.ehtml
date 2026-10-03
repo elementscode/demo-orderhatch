@@ -1,0 +1,56 @@
+import "./style.css";
+import config from "#config";
+import { clock, money } from "#app/shared/format";
+import { Ticket, choiceSummary } from "#app/shared/tickets";
+
+/**
+ * The customer's receipt, sent once their payment clears.
+ *
+ * @email
+ */
+<html (ticket: Ticket)>
+  <body class="email receipt">
+    <div class="email-wrap">
+      <p class="brand">{config.restaurant.name}</p>
+      <h1>Thanks, {ticket.customerName.split(" ")[0]}. Order #{ticket.number} is in.</h1>
+
+      <div class="pickup">
+        <strong e:if={ticket.pickupAt}>Pickup at {clock(ticket.pickupAt!)}</strong>
+        <strong e:else>Pickup as soon as it's ready, usually 15 to 20 minutes</strong>
+        <br>
+        {config.restaurant.address}
+      </div>
+
+      <table class="lines">
+        <tr e:for={item of ticket.items}>
+          <td>
+            {item.quantity} × {item.name}
+            <span e:if={item.choices.length > 0} class="choices">{choiceSummary(item.choices)}</span>
+          </td>
+          <td class="amount">{money(item.unitCents * item.quantity)}</td>
+        </tr>
+      </table>
+
+      <table class="totals">
+        <tr>
+          <td>Subtotal</td>
+          <td class="amount">{money(ticket.subtotalCents)}</td>
+        </tr>
+        <tr>
+          <td>Tax</td>
+          <td class="amount">{money(ticket.taxCents)}</td>
+        </tr>
+        <tr class="total">
+          <td>Paid by card</td>
+          <td class="amount">{money(ticket.totalCents)}</td>
+        </tr>
+      </table>
+
+      <a class="button" href={`/orders/${ticket.id}`}>Follow your order</a>
+
+      <div class="email-footer">
+        <p>{config.restaurant.name} · {config.restaurant.address} · {config.restaurant.phone}</p>
+      </div>
+    </div>
+  </body>
+</html>

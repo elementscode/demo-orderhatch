@@ -1,0 +1,459 @@
+import "./style.css";
+import { FieldErrors, LiveView, redirect } from "@elements/app";
+import config from "#config";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+import { Layout } from "#app/shared/templates/layout";
+import { money, taxFor } from "#app/shared/format";
+import { Category, MenuItem, OptionGroup, groupsFor, isSoldOut, itemsIn } from "#app/shared/menu";
+import { photoUrl } from "#app/shared/photos";
+import { Choice, choiceSummary } from "#app/shared/tickets";
+import type { Schedule } from "#app/shared/services/hours";
+import { OrderForm, placeOrder } from "#app/shared/services/checkout";
+
+interface CartLine {
+  id: string;
+  itemId: string;
+  name: string;
+  photo: string;
+  quantity: number;
+  optionIds: string[];
+  choices: Choice[];
+  unitCents: number;
+}
+
+interface Cart {
+  lines: CartLine[];
+  open: boolean;
+  step: string;
+}
+
+interface PickOption {
+  id: string;
+  name: string;
+  priceCents: number;
+  picked: boolean;
+}
+
+interface PickGroup {
+  id: string;
+  name: string;
+  kind: string;
+  required: boolean;
+  options: PickOption[];
+}
+
+/** The dish being customized, with a copy of its option groups to pick in. */
+interface Picker {
+  item: MenuItem | null;
+  groups: PickGroup[];
+  quantity: number;
+}
+
+interface Details {
+  name: string;
+  phone: string;
+  email: string;
+  mode: string;
+  slot: string;
+  errors: FieldErrors<OrderForm>;
+  error: string;
+  busy: boolean;
+}
+
+const CART_KEY = "orderhatch-cart";
+
+function subtotal(cart: Cart): number {
+  return cart.lines.reduce((sum, l) => sum + l.unitCents * l.quantity, 0);
+}
+
+function count(cart: Cart): number {
+  return cart.lines.reduce((sum, l) => sum + l.quantity, 0);
+}
+
+function lineSoldOut(menu: LiveView<MenuItem>, line: CartLine): boolean {
+  let item = menu.get(line.itemId);
+
+  return !item || item.hidden || isSoldOut(item);
+}
+
+function cartBlocked(menu: LiveView<MenuItem>, cart: Cart): boolean {
+  return cart.lines.some((l) => lineSoldOut(menu, l));
+}
+
+function saveCart(cart: Cart) {
+  localStorage.setItem(CART_KEY, JSON.stringify(cart.lines));
+}
+
+function onLoadCart(cart: Cart) {
+  try {
+    let saved = JSON.parse(localStorage.getItem(CART_KEY) ?? "[]");
+
+    if (Array.isArray(saved)) {
+      cart.lines = saved;
+    }
+  } catch {
+    localStorage.removeItem(CART_KEY);
+  }
+}
+
+function pickedOptions(picker: Picker): { ids: string[]; choices: Choice[] } {
+  let ids: string[] = [];
+  let choices: Choice[] = [];
+
+  for (let group of picker.groups) {
+    for (let option of group.options.filter((o) => o.picked)) {
+      ids.push(option.id);
+      choices.push({ group: group.name, name: option.name, priceCents: option.priceCents });
+    }
+  }
+
+  return { ids, choices };
+}
+
+function pickerUnit(picker: Picker): number {
+  if (!picker.item) {
+    return 0;
+  }
+
+  return picker.item.priceCents + pickedOptions(picker).choices.reduce((sum, c) => sum + c.priceCents, 0);
+}
+
+function missingChoice(picker: Picker): string {
+  let group = picker.groups.find((g) => g.required && !g.options.some((o) => o.picked));
+
+  return group ? group.name : "";
+}
+
+function extra(cents: number): string {
+  return cents > 0 ? `+${money(cents)}` : "";
+}
+
+function onPick(picker: Picker, item: MenuItem, groups: OptionGroup[]) {
+  picker.groups = groupsFor(item, groups).map((g) => ({
+    id: g.id,
+    name: g.name,
+    kind: g.kind,
+    required: g.required,
+    options: g.options.map((o, i) => ({ ...o, picked: g.kind === "one" && g.required && i === 0 })),
+  }));
+  picker.quantity = 1;
+  picker.item = item;
+}
+
+function onPickOne(group: PickGroup, option: PickOption) {
+  for (let o of group.options) {
+    o.picked = o.id === option.id;
+  }
+}
+
+function onClosePicker(picker: Picker) {
+  picker.item = null;
+}
+
+function onAdd(picker: Picker, cart: Cart) {
+  let item = picker.item;
+
+  if (!item || missingChoice(picker)) {
+    return;
+  }
+
+  let { ids, choices } = pickedOptions(picker);
+  let key = `${item.id}:${[...ids].sort().join(",")}`;
+  let same = cart.lines.find((l) => l.id === key);
+
+  if (same) {
+    same.quantity += picker.quantity;
+  } else {
+    cart.lines.push({
+      id: key,
+      itemId: item.id,
+      name: item.name,
+      photo: item.photo,
+      quantity: picker.quantity,
+      optionIds: ids,
+      choices,
+      unitCents: pickerUnit(picker),
+    });
+  }
+
+  saveCart(cart);
+  picker.item = null;
+}
+
+function onQuantity(cart: Cart, line: CartLine, delta: number) {
+  line.quantity = Math.max(0, Math.min(20, line.quantity + delta));
+
+  if (line.quantity === 0) {
+    cart.lines = cart.lines.filter((l) => l.id !== line.id);
+  }
+
+  if (cart.lines.length === 0) {
+    cart.step = "cart";
+  }
+
+  saveCart(cart);
+}
+
+function onPickerKey(e: KeyboardEvent, picker: Picker) {
+  if (e.key === "Escape") {
+    picker.item = null;
+  }
+}
+
+async function onPay(cart: Cart, details: Details) {
+  details.busy = true;
+  details.error = "";
+  details.errors = {};
+
+  try {
+    let url = await placeOrder({
+      name: details.name,
+      phone: details.phone,
+      email: details.email,
+      pickup: details.mode === "asap" ? "asap" : details.slot,
+      lines: cart.lines.map((l) => ({ itemId: l.itemId, quantity: l.quantity, optionIds: l.optionIds })),
+    });
+
+    localStorage.removeItem(CART_KEY);
+    redirect(url);
+  } catch (err: any) {
+    details.errors = err.errors ?? {};
+    details.error = err.errors ? "" : err.message;
+    details.busy = false;
+  }
+}
+
+<html lang="en" class="page-menu" (
+  menu: LiveView<MenuItem>,
+  categories: Category[],
+  groups: OptionGroup[],
+  schedule: Schedule,
+  testMode: boolean,
+  private cart: Cart = { lines: [], open: false, step: "cart" },
+  private picker: Picker = { item: null, groups: [], quantity: 1 },
+  private details: Details = {
+    name: "",
+    phone: "",
+    email: "",
+    mode: schedule.asap ? "asap" : "later",
+    slot: schedule.slots[0]?.value ?? "",
+    errors: {},
+    error: "",
+    busy: false,
+  },
+) oninit={() => onLoadCart(cart)}>
+  <head>
+    <title>{config.restaurant.name} · Order pickup</title>
+    <meta name="description" content={`Order tacos, burritos and more from ${config.restaurant.name} for pickup.`}>
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <Layout section="menu">
+      <section class="menu-hero">
+        <div class="menu-hero-inner stack is-md">
+          <p class="eyebrow">Order ahead · pickup at the window</p>
+          <h1>{config.restaurant.name}</h1>
+          <p>Tortillas pressed to order, salsas made every morning. Order here, pay by card, and watch your order go from the grill to the window.</p>
+          <div class="menu-hero-meta cluster is-sm">
+            <span e:if={schedule.asap} class="pill is-success"><span class="pill-dot"></span>Open now · ready in about {config.restaurant.leadMinutes} min</span>
+            <span e:elseif={schedule.slots.length > 0} class="pill is-warning"><span class="pill-dot"></span>Taking orders for later today</span>
+            <span e:else class="pill is-danger"><span class="pill-dot"></span>Not taking orders right now</span>
+            <span>{schedule.label}</span>
+            <span>{config.restaurant.address}</span>
+          </div>
+        </div>
+      </section>
+
+      <div class="menu-layout">
+        <div>
+          <nav class="menu-nav cluster is-xs" aria-label="Menu sections">
+            <a e:for={category of categories} href={`#cat-${category.id}`}>{category.name}</a>
+          </nav>
+
+          <section e:for={category of categories} id={`cat-${category.id}`} class="menu-category">
+            <div class="menu-category-head stack is-xs">
+              <h2>{category.name}</h2>
+              <p>{category.blurb}</p>
+            </div>
+
+            <div class="menu-grid">
+              <button e:for={item of itemsIn(menu, category.id)}
+                      type="button"
+                      class="dish"
+                      disabled={isSoldOut(item)}
+                      aria-label={isSoldOut(item) ? `${item.name}, sold out today` : `Add ${item.name}, ${money(item.priceCents)}`}
+                      onclick={() => onPick(picker, item, groups)}>
+                <div class="dish-photo">
+                  <img e:if={photoUrl(item.photo)} src={photoUrl(item.photo)} alt="" loading="lazy" width="400" height="300">
+                  <span e:if={isSoldOut(item)} class="dish-soldout pill is-danger">Sold out today</span>
+                </div>
+                <div class="dish-body">
+                  <div class="dish-title row">
+                    <strong>{item.name}</strong>
+                    <span class="dish-price">{money(item.priceCents)}</span>
+                  </div>
+                  <p class="dish-desc line-clamp-2">{item.description}</p>
+                </div>
+                <span e:if={!isSoldOut(item)} class="dish-add" aria-hidden="true">+</span>
+              </button>
+            </div>
+          </section>
+        </div>
+
+        <aside class={["cart", "card", cart.open && "is-open"]} aria-label="Your order">
+          <div class="card-head cart-head row">
+            <h2 e:if={cart.step === "cart"}>Your order</h2>
+            <h2 e:else>Pickup details</h2>
+            <button e:if={cart.step === "details"} type="button" class="is-ghost is-sm" onclick={() => cart.step = "cart"}>Back</button>
+            <button e:elseif={cart.open} type="button" class="is-ghost is-sm" onclick={() => cart.open = false}>Close</button>
+          </div>
+
+          <div class="card-body stack">
+            <p e:if={cart.lines.length === 0} class="cart-empty">Nothing here yet. Tap a dish to add it.</p>
+
+            <ul e:if={cart.step === "cart" && cart.lines.length > 0} class="cart-lines">
+              <li e:for={line of cart.lines} class="cart-line">
+                <img e:if={photoUrl(line.photo)} src={photoUrl(line.photo)} alt="" width="48" height="48">
+                <span e:else class="cart-thumb"></span>
+                <div>
+                  <div class="cart-line-name">{line.name}</div>
+                  <div e:if={line.choices.length > 0} class="cart-line-choices">{choiceSummary(line.choices)}</div>
+                  <div e:if={lineSoldOut(menu, line)} class="field-error">Sold out for today. Remove it to check out.</div>
+                  <div class="stepper row">
+                    <button type="button" class="is-sm" aria-label={`One less ${line.name}`} onclick={() => onQuantity(cart, line, -1)}>−</button>
+                    <span>{line.quantity}</span>
+                    <button type="button" class="is-sm" aria-label={`One more ${line.name}`} onclick={() => onQuantity(cart, line, 1)}>+</button>
+                  </div>
+                </div>
+                <span class="cart-line-price">{money(line.unitCents * line.quantity)}</span>
+              </li>
+            </ul>
+
+            <form e:if={cart.step === "details" && cart.lines.length > 0} class="stack" onsubmit={() => onPay(cart, details)}>
+              <div e:if={details.error} class="callout is-danger" role="alert">{details.error}</div>
+
+              <div class="field">
+                <label for="name">Name for the order</label>
+                <input id="name" name="name" value={details.name} autocomplete="name" required class={[details.errors.name && "is-error"]}>
+                <p e:if={details.errors.name} class="field-error">{details.errors.name?.[0]}</p>
+              </div>
+
+              <div class="field">
+                <label for="phone">Phone</label>
+                <input id="phone" name="phone" type="tel" value={details.phone} autocomplete="tel" placeholder="(323) 555-0123" required class={[details.errors.phone && "is-error"]}>
+                <p e:if={details.errors.phone} class="field-error">{details.errors.phone?.[0]}</p>
+              </div>
+
+              <div class="field">
+                <label for="email">Email for your receipt</label>
+                <input id="email" name="email" type="email" value={details.email} autocomplete="email" autocapitalize="none" spellcheck={false} required class={[details.errors.email && "is-error"]}>
+                <p e:if={details.errors.email} class="field-error">{details.errors.email?.[0]}</p>
+              </div>
+
+              <div class="field">
+                <label>Pickup time</label>
+                <div class="pickup-choice">
+                  <label>
+                    <input type="radio" name="mode" value="asap" group={details.mode} disabled={!schedule.asap}>
+                    ASAP, ~{config.restaurant.leadMinutes} min
+                  </label>
+                  <label>
+                    <input type="radio" name="mode" value="later" group={details.mode} disabled={schedule.slots.length === 0}>
+                    Later today
+                  </label>
+                </div>
+                <select e:if={details.mode === "later"} value={details.slot} aria-label="Pickup time">
+                  <option e:for={slot of schedule.slots} value={slot.value}>{slot.label}</option>
+                </select>
+                <p e:if={details.errors.pickup} class="field-error">{details.errors.pickup?.[0]}</p>
+              </div>
+
+              <button type="submit" class={["is-primary", "is-lg", "is-block", details.busy && "is-loading"]} disabled={details.busy || cartBlocked(menu, cart)}>
+                Pay {money(subtotal(cart) + taxFor(subtotal(cart)))}
+              </button>
+              <p e:if={testMode} class="hint">Test mode: you'll pay on the app's test checkout, no card needed, then come back here to follow your order.</p>
+              <p e:else class="hint">You'll pay on Stripe's secure checkout, then come back here to follow your order.</p>
+            </form>
+
+            <dl e:if={cart.lines.length > 0} class="totals">
+              <dt>Subtotal</dt>
+              <dd>{money(subtotal(cart))}</dd>
+              <dt>Tax</dt>
+              <dd>{money(taxFor(subtotal(cart)))}</dd>
+              <dt class="is-total">Total</dt>
+              <dd class="is-total">{money(subtotal(cart) + taxFor(subtotal(cart)))}</dd>
+            </dl>
+
+            <div e:if={cart.step === "cart" && cart.lines.length > 0} class="stack is-sm">
+              <button e:if={schedule.asap || schedule.slots.length > 0}
+                      type="button"
+                      class="is-primary is-lg is-block"
+                      disabled={cartBlocked(menu, cart)}
+                      onclick={() => cart.step = "details"}>
+                Check out
+              </button>
+              <p e:else class="callout is-warning">We're not taking orders right now. {schedule.label}.</p>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <button e:if={cart.lines.length > 0 && !cart.open}
+              type="button"
+              class="cart-bar is-primary is-lg"
+              onclick={() => cart.open = true}>
+        <span>View order · {count(cart)} {count(cart) === 1 ? "item" : "items"}</span>
+        <span>{money(subtotal(cart))}</span>
+      </button>
+
+      <div e:if={picker.item} class="sheet-backdrop" onclick={(e) => e.target === e.currentTarget && onClosePicker(picker)} onkeydown={(e) => onPickerKey(e, picker)}>
+        <div class="sheet" role="dialog" aria-modal="true" aria-label={picker.item?.name}>
+          <button type="button" class="sheet-close" aria-label="Close" onclick={() => onClosePicker(picker)}>
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+
+          <div class="sheet-scroll">
+            <div class="sheet-photo">
+              <img e:if={photoUrl(picker.item?.photo ?? "")} src={photoUrl(picker.item?.photo ?? "")} alt="" width="544" height="306">
+            </div>
+
+            <div class="sheet-body stack is-lg">
+              <div class="stack is-xs">
+                <h2>{picker.item?.name}</h2>
+                <p class="hint">{picker.item?.description}</p>
+                <strong>{money(picker.item?.priceCents ?? 0)}</strong>
+              </div>
+
+              <fieldset e:for={group of picker.groups} class="sheet-group">
+                <legend>
+                  {group.name}
+                  <small e:if={group.kind === "one" && group.required}>Choose one</small>
+                  <small e:elseif={group.kind === "many"}>Optional, choose any</small>
+                </legend>
+                <div class="sheet-options">
+                  <label e:for={option of group.options} class="sheet-option">
+                    <input e:if={group.kind === "one"} type="radio" name={group.id} value={option.id} checked={option.picked} onchange={() => onPickOne(group, option)}>
+                    <input e:else type="checkbox" value={option.id} checked={option.picked}>
+                    <span>{option.name}</span>
+                    <small>{extra(option.priceCents)}</small>
+                  </label>
+                </div>
+              </fieldset>
+            </div>
+          </div>
+
+          <div class="sheet-foot row">
+            <div class="stepper row" aria-label="Quantity">
+              <button type="button" aria-label="One less" disabled={picker.quantity <= 1} onclick={() => picker.quantity = Math.max(1, picker.quantity - 1)}>−</button>
+              <span>{picker.quantity}</span>
+              <button type="button" aria-label="One more" onclick={() => picker.quantity = Math.min(20, picker.quantity + 1)}>+</button>
+            </div>
+            <button type="button" class="is-primary is-lg" disabled={missingChoice(picker) !== ""} onclick={() => onAdd(picker, cart)}>
+              Add to order · {money(pickerUnit(picker) * picker.quantity)}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Layout>
+  </body>
+</html>

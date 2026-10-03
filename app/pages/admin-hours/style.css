@@ -1,0 +1,88 @@
+@import "#app/shared/styles/page.css";
+
+.hours {
+  width: 100%;
+  padding: var(--space-8) var(--space-5) var(--space-16);
+}
+
+.hours-head p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.hours-table {
+  width: 100%;
+}
+
+.hours-table td {
+  vertical-align: middle;
+}
+
+.hours-table input[type="time"] {
+  width: 8.5rem;
+}
+
+.hours-table tr.is-closed input[type="time"] {
+  opacity: var(--opacity-disabled);
+}
+
+.hours-closed {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.hours-foot {
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.hours-saved {
+  font-size: var(--text-sm);
+  color: var(--success);
+}
+
+@media (max-width: 30rem) {
+  .hours-table thead {
+    display: none;
+  }
+
+  .hours-table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: "day closed" "opens closes";
+    align-items: center;
+    gap: var(--space-2);
+    padding-block: var(--space-2);
+  }
+
+  .hours-table td:nth-child(2) {
+    grid-area: opens;
+  }
+
+  .hours-table td:nth-child(3) {
+    grid-area: closes;
+  }
+
+  .hours-table td:nth-child(4) {
+    grid-area: closed;
+    justify-self: end;
+  }
+
+  .hours-table td {
+    padding: 0;
+    border: 0;
+  }
+
+  .hours-table td:first-child {
+    grid-area: day;
+    font-weight: var(--weight-semibold);
+  }
+
+  .hours-table input[type="time"] {
+    width: 100%;
+    min-width: 0;
+  }
+}

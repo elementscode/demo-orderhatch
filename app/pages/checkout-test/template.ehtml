@@ -1,0 +1,92 @@
+import "./style.css";
+import { redirect } from "@elements/app";
+import config from "#config";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+import { Layout } from "#app/shared/templates/layout";
+import { clock, money } from "#app/shared/format";
+import { choiceSummary } from "#app/shared/tickets";
+import { CheckoutOrder } from "#app/shared/services/checkout";
+import { payTestOrder } from "./services";
+
+interface PayState {
+  busy: boolean;
+  error: string;
+}
+
+async function onPay(order: CheckoutOrder, pay: PayState) {
+  pay.busy = true;
+  pay.error = "";
+
+  try {
+    await payTestOrder(order.id);
+    redirect(`/orders/${order.id}`);
+  } catch (err: any) {
+    pay.error = err.message;
+    pay.busy = false;
+  }
+}
+
+<html lang="en" class="page-checkout-test" (
+  order: CheckoutOrder,
+  private pay: PayState = { busy: false, error: "" },
+)>
+  <head>
+    <title>Checkout · {config.restaurant.name}</title>
+    <meta name="description" content="Pay for your order.">
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <Layout section="menu">
+      <div class="checkout-wrap page-shell is-form stack is-lg">
+        <div class="checkout-head stack is-sm">
+          <span class="pill is-warning checkout-badge"><span class="pill-dot"></span>Test mode</span>
+          <p class="eyebrow">Order #{order.number} · {order.customerName}</p>
+          <h1>Pay {money(order.totalCents)}</h1>
+          <p>{order.pickupAt ? `Pickup at ${clock(order.pickupAt)}` : "Pickup as soon as it's ready"} · {config.restaurant.name}</p>
+        </div>
+
+        <section class="card checkout-card">
+          <div class="card-body stack">
+            <ul class="checkout-lines">
+              <li e:for={line of order.lines}>
+                <span class="checkout-qty">{line.quantity}</span>
+                <span>
+                  {line.name}
+                  <small e:if={line.choices.length > 0}>{choiceSummary(line.choices)}</small>
+                </span>
+                <span class="amount">{money(line.unitCents * line.quantity)}</span>
+              </li>
+            </ul>
+
+            <dl class="checkout-totals">
+              <dt>Subtotal</dt>
+              <dd>{money(order.subtotalCents)}</dd>
+              <dt>Tax</dt>
+              <dd>{money(order.taxCents)}</dd>
+              <dt class="is-total">Total</dt>
+              <dd class="is-total">{money(order.totalCents)}</dd>
+            </dl>
+
+            <p e:if={pay.error} class="field-error">{pay.error}</p>
+
+            <div class="stack is-sm">
+              <button type="button"
+                      class={["is-primary", "is-lg", "is-block", pay.busy && "is-loading"]}
+                      disabled={pay.busy}
+                      onclick={() => onPay(order, pay)}>
+                Pay {money(order.totalCents)}
+              </button>
+              <a class="checkout-cancel" href={`/orders/${order.id}`}>Cancel and go back</a>
+            </div>
+          </div>
+        </section>
+
+        <p class="checkout-note">
+          This is the app's test checkout: no card is charged and no card details are asked for.
+          Add <code>STRIPE_SECRET_KEY</code> to <code>config/env/development.env</code> and this
+          button goes to real Stripe Checkout.
+        </p>
+      </div>
+    </Layout>
+  </body>
+</html>

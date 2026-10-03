@@ -1,0 +1,103 @@
+@import "#app/shared/styles/page.css";
+
+.checkout-wrap {
+  width: 100%;
+  padding: var(--space-10) var(--space-5) var(--space-16);
+}
+
+.checkout-head {
+  align-items: center;
+  text-align: center;
+}
+
+.checkout-badge {
+  align-self: center;
+}
+
+.checkout-head h1 {
+  margin: 0;
+  font-size: clamp(var(--text-3xl), 5vw, var(--text-5xl));
+  letter-spacing: var(--tracking-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+.checkout-head p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.checkout-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.checkout-lines li {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: start;
+  padding: var(--space-3) 0;
+}
+
+.checkout-qty {
+  display: inline-grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.checkout-lines small {
+  display: block;
+  color: var(--ink-soft);
+}
+
+.checkout-lines .amount {
+  font-variant-numeric: tabular-nums;
+}
+
+.checkout-totals {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--rule-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.checkout-totals dt {
+  color: var(--ink-soft);
+}
+
+.checkout-totals dd {
+  margin: 0;
+  text-align: end;
+}
+
+.checkout-totals .is-total {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--ink);
+}
+
+.checkout-cancel {
+  align-self: center;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.checkout-note {
+  margin: 0;
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  text-wrap: pretty;
+}

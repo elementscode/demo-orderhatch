@@ -1,0 +1,157 @@
+import "./style.css";
+import { LiveView, redirect } from "@elements/app";
+import config from "#config";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+import { Layout } from "#app/shared/templates/layout";
+import { clock, money } from "#app/shared/format";
+import { OrderStatus, Ticket, choiceSummary } from "#app/shared/tickets";
+import { resumePayment } from "#app/shared/services/checkout";
+
+interface Step {
+  id: string;
+  label: string;
+}
+
+const STEPS: Step[] = [
+  { id: "new", label: "Received" },
+  { id: "preparing", label: "Preparing" },
+  { id: "ready", label: "Ready for pickup" },
+];
+
+const ORDER: OrderStatus[] = ["pending", "new", "preparing", "ready", "done"];
+
+function stepClass(ticket: Ticket, step: Step): string[] {
+  let at = ORDER.indexOf(ticket.status);
+  let mine = ORDER.indexOf(step.id as OrderStatus);
+
+  return [
+    "step",
+    at > mine || ticket.status === "done" ? "is-done" : "",
+    at === mine && ticket.status !== "ready" ? "is-current" : "",
+    at === mine && ticket.status === "ready" ? "is-done" : "",
+    step.id === "ready" ? "is-ready" : "",
+  ];
+}
+
+function headline(ticket: Ticket): string {
+  switch (ticket.status) {
+    case "pending":
+      return "Waiting for payment";
+
+    case "new":
+      return "We've got your order";
+
+    case "preparing":
+      return "Your order is on the grill";
+
+    case "ready":
+      return "Ready at the window";
+
+    default:
+      return "Picked up. Buen provecho!";
+  }
+}
+
+function pickupLine(ticket: Ticket): string {
+  if (ticket.pickupAt) {
+    return `Pickup at ${clock(ticket.pickupAt)}`;
+  }
+
+  return "Pickup as soon as it's ready";
+}
+
+async function onResume(ticket: Ticket, pay: { busy: boolean; error: string }) {
+  pay.busy = true;
+
+  try {
+    redirect(await resumePayment(ticket.id));
+  } catch (err: any) {
+    pay.error = err.message;
+    pay.busy = false;
+  }
+}
+
+<html lang="en" class="page-order-status" (
+  order: LiveView<Ticket>,
+  private pay: { busy: boolean; error: string } = { busy: false, error: "" },
+)>
+  <head>
+    <title>Order #{order.at(0)?.number} · {config.restaurant.name}</title>
+    <meta name="description" content="Follow your order.">
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <Layout section="menu">
+      <div class="status-wrap page-shell is-form">
+        <div e:for={ticket of order} class="stack is-xl">
+          <div class="status-head stack is-sm">
+            <p class="eyebrow">Order #{ticket.number} · {ticket.customerName}</p>
+            <h1>{headline(ticket)}</h1>
+            <p>{pickupLine(ticket)} · {config.restaurant.address}</p>
+          </div>
+
+          <div e:if={ticket.status === "pending"} class="callout is-warning stack is-sm">
+            <p>This order isn't paid yet, so the kitchen hasn't seen it. Finish paying to send it to the kitchen.</p>
+            <p e:if={pay.error} class="field-error">{pay.error}</p>
+            <button type="button" class={["is-primary", pay.busy && "is-loading"]} disabled={pay.busy} onclick={() => onResume(ticket, pay)}>
+              Pay {money(ticket.totalCents)}
+            </button>
+          </div>
+
+          <ol e:if={ticket.status !== "pending"} class="steps" aria-label="Order progress">
+            <li e:for={step of STEPS} class={stepClass(ticket, step)}>
+              <span class="step-bar"></span>
+              {step.label}
+            </li>
+          </ol>
+
+          <div e:if={ticket.status === "ready"} class="status-banner is-ready" role="status">
+            <strong>Come on by, {ticket.customerName.split(" ")[0]}.</strong>
+            <span>Give the name {ticket.customerName} or order #{ticket.number} at the pickup window.</span>
+          </div>
+          <div e:elseif={ticket.status === "new" || ticket.status === "preparing"} class="status-banner" role="status">
+            <strong>{ticket.status === "new" ? "Order received" : "Cooking now"}</strong>
+            <span>This page updates by itself. You'll also get a receipt at {ticket.email}.</span>
+          </div>
+
+          <section class="card">
+            <div class="card-head">
+              <h2>Your order</h2>
+            </div>
+            <div class="card-body stack">
+              <ul class="status-lines">
+                <li e:for={item of ticket.items}>
+                  <span>
+                    {item.quantity} × {item.name}
+                    <small e:if={item.choices.length > 0}>{choiceSummary(item.choices)}</small>
+                  </span>
+                  <span class="amount">{money(item.unitCents * item.quantity)}</span>
+                </li>
+              </ul>
+
+              <dl class="status-totals">
+                <dt>Subtotal</dt>
+                <dd>{money(ticket.subtotalCents)}</dd>
+                <dt>Tax</dt>
+                <dd>{money(ticket.taxCents)}</dd>
+                <dt class="is-total">{ticket.status === "pending" ? "Total due" : "Paid by card"}</dt>
+                <dd class="is-total">{money(ticket.totalCents)}</dd>
+              </dl>
+
+              <dl class="status-facts">
+                <dt>Name</dt>
+                <dd>{ticket.customerName}</dd>
+                <dt>Phone</dt>
+                <dd>{ticket.phone}</dd>
+                <dt e:if={ticket.paidAt}>Paid</dt>
+                <dd e:if={ticket.paidAt}>{clock(ticket.paidAt!)}</dd>
+              </dl>
+            </div>
+          </section>
+
+          <p class="hint">Questions about your order? Call us at {config.restaurant.phone}. <a href="/">Back to the menu</a></p>
+        </div>
+      </div>
+    </Layout>
+  </body>
+</html>

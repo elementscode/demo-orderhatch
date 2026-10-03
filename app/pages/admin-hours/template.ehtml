@@ -1,0 +1,120 @@
+import "./style.css";
+import { sql, ValidationError } from "@elements/app";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+import { Layout } from "#app/shared/templates/layout";
+import { requireOwner } from "#app/shared/services/auth";
+
+export interface Day {
+  id: string;
+  weekday: number;
+  opensAt: string;
+  closesAt: string;
+  closed: boolean;
+}
+
+const NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/** Monday first, the way a posted sign reads. */
+export function loadHours(): Day[] {
+  return sql<Day>(`
+    select id, weekday, to_char(opensAt, 'HH24:MI') as opensAt, to_char(closesAt, 'HH24:MI') as closesAt, closed
+      from hours
+     order by (weekday + 6) % 7
+  `).all();
+}
+
+/** @rpc */
+export function saveHours(days: Day[]): Day[] {
+  requireOwner();
+
+  for (let day of days) {
+    if (!day.closed && day.opensAt >= day.closesAt) {
+      throw new ValidationError(`${NAMES[day.weekday]} has to close after it opens.`);
+    }
+  }
+
+  for (let day of days) {
+    sql(`
+      update hours set opensAt = ${day.opensAt}::time, closesAt = ${day.closesAt}::time, closed = ${day.closed}
+       where weekday = ${day.weekday}
+    `);
+  }
+
+  return loadHours();
+}
+
+function onSave(days: Day[], state: { error: string; saved: boolean; busy: boolean }): Day[] {
+  state.busy = true;
+  state.saved = false;
+  state.error = "";
+
+  try {
+    let fresh = saveHours(days);
+    state.saved = true;
+
+    return fresh;
+  } catch (err: any) {
+    state.error = err.message;
+
+    return days;
+  } finally {
+    state.busy = false;
+  }
+}
+
+<html lang="en" class="page-admin-hours" (
+  days: Day[],
+  private state: { error: string; saved: boolean; busy: boolean } = { error: "", saved: false, busy: false },
+)>
+  <head>
+    <title>Hours · orderhatch</title>
+    <meta name="description" content="Opening hours.">
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <Layout section="hours">
+      <form class="hours page-shell is-form stack is-lg" onsubmit={() => days = onSave(days, state)}>
+        <div class="hours-head stack is-xs">
+          <h1>Hours</h1>
+          <p>Customers can order ASAP while you're open, and schedule pickups for later the same day. The last pickup slot is 15 minutes before closing.</p>
+        </div>
+
+        <div e:if={state.error} class="callout is-danger" role="alert">{state.error}</div>
+
+        <div class="card">
+          <div class="card-body">
+            <table class="hours-table">
+              <thead>
+                <tr>
+                  <th>Day</th>
+                  <th>Opens</th>
+                  <th>Closes</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr e:for={day of days} class={[day.closed && "is-closed"]}>
+                  <td>{NAMES[day.weekday]}</td>
+                  <td><input type="time" value={day.opensAt} disabled={day.closed} aria-label={`${NAMES[day.weekday]} opens`} oninput={() => state.saved = false}></td>
+                  <td><input type="time" value={day.closesAt} disabled={day.closed} aria-label={`${NAMES[day.weekday]} closes`} oninput={() => state.saved = false}></td>
+                  <td>
+                    <label class="hours-closed">
+                      <input type="checkbox" checked={day.closed} onchange={() => state.saved = false}>
+                      Closed
+                    </label>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="hours-foot row">
+          <span e:if={state.saved} class="hours-saved" role="status">Saved. The order page uses the new hours now.</span>
+          <span e:else></span>
+          <button type="submit" class={["is-primary", state.busy && "is-loading"]} disabled={state.busy}>Save hours</button>
+        </div>
+      </form>
+    </Layout>
+  </body>
+</html>

@@ -1,0 +1,55 @@
+import "./style.css";
+import { LiveView } from "@elements/app";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+import { Layout } from "#app/shared/templates/layout";
+import { Category, MenuItem, isSoldOut, itemsIn } from "#app/shared/menu";
+
+/**
+ * The server sets the real end of the business day; this placeholder only
+ * has to be in the future so the row reads as sold out until it answers.
+ */
+const PLACEHOLDER_MS = 12 * 60 * 60 * 1000;
+
+function onToggle(menu: LiveView<MenuItem>, item: MenuItem) {
+  menu.update({ ...item, soldOutUntil: isSoldOut(item) ? null : new Date(Date.now() + PLACEHOLDER_MS) });
+}
+
+function soldOutCount(menu: LiveView<MenuItem>): number {
+  return menu.filter((i) => !i.hidden && isSoldOut(i)).length;
+}
+
+<html lang="en" class="page-kitchen-sold-out" data-theme="dark" (menu: LiveView<MenuItem>, categories: Category[])>
+  <head>
+    <title>Sold out · orderhatch</title>
+    <meta name="description" content="Mark items sold out for the day.">
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <Layout section="sold-out">
+      <div class="soldout page-shell is-form stack is-lg">
+        <div class="soldout-head stack is-xs">
+          <h1>Sold out today</h1>
+          <p>Tap an item when you run out. It disappears from the order page right away and comes back on its own tomorrow morning.</p>
+          <p class="soldout-summary" e:if={soldOutCount(menu) > 0}>{soldOutCount(menu)} sold out right now</p>
+        </div>
+
+        <section e:for={category of categories} class="card">
+          <div class="card-head">
+            <h2>{category.name}</h2>
+          </div>
+          <ul class="soldout-list">
+            <li e:for={item of itemsIn(menu, category.id)} class={["soldout-item", "row", isSoldOut(item) && "is-out"]}>
+              <span class="soldout-name">{item.name}</span>
+              <button type="button"
+                      class={["soldout-toggle", isSoldOut(item) ? "is-danger" : ""]}
+                      aria-pressed={isSoldOut(item)}
+                      onclick={() => onToggle(menu, item)}>
+                {isSoldOut(item) ? "Sold out · undo" : "Available"}
+              </button>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </Layout>
+  </body>
+</html>
