@@ -1,0 +1,194 @@
+@import "#app/shared/styles/page.css";
+
+.dash {
+  width: 100%;
+  padding: var(--space-8) var(--space-5) var(--space-16);
+}
+
+.dash-head {
+  justify-content: space-between;
+  align-items: end;
+  gap: var(--space-4);
+}
+
+.dash-head h1 {
+  margin: 0;
+}
+
+.dash-head p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.tile {
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-xl);
+  background: var(--bg-elevated);
+}
+
+.tile-label {
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.tile-value {
+  margin-top: var(--space-1);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+.tile-note {
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+}
+
+.dash-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+.chart {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--bars), minmax(0, 1fr));
+  align-items: end;
+  gap: 2px;
+  height: 11rem;
+  padding-top: var(--space-6);
+  border-bottom: 1px solid var(--rule);
+}
+
+.chart-bar {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: end;
+  cursor: default;
+}
+
+.chart-bar span {
+  display: block;
+  width: 100%;
+  max-width: 2.5rem;
+  margin-inline: auto;
+  border-radius: 4px 4px 0 0;
+  background: var(--accent);
+}
+
+.chart-bar:hover span,
+.chart-bar:focus-visible span {
+  background: var(--accent-deep);
+}
+
+.chart-tip {
+  position: absolute;
+  bottom: calc(100% + var(--space-1));
+  left: 50%;
+  z-index: var(--z-tooltip);
+  transform: translateX(-50%);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg-inverse);
+  color: var(--ink-inverse);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.chart-bar:hover .chart-tip,
+.chart-bar:focus-visible .chart-tip {
+  opacity: 1;
+}
+
+.chart-axis {
+  display: grid;
+  grid-template-columns: repeat(var(--bars), minmax(0, 1fr));
+  gap: 2px;
+  margin-top: var(--space-1-5);
+  font-size: var(--text-2xs);
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.top-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.top-items li {
+  justify-content: space-between;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--rule-soft);
+  font-size: var(--text-sm);
+}
+
+.top-items li:last-child {
+  border-bottom: 0;
+}
+
+.top-items span:last-child {
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.orders-table {
+  width: 100%;
+  font-size: var(--text-sm);
+}
+
+.orders-table td,
+.orders-table th {
+  vertical-align: top;
+}
+
+.orders-table .num {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.orders-table .items {
+  color: var(--ink-soft);
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.dash-empty {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 64rem) {
+  .tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dash-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 30rem) {
+  .tile-value {
+    font-size: var(--text-2xl);
+  }
+
+  .orders-table .items {
+    display: none;
+  }
+}

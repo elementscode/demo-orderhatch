@@ -1,0 +1,61 @@
+import "./style.css";
+import { redirect, session } from "@elements/app";
+import config from "#config";
+import { signout } from "#app/shared/services/auth";
+
+export type Section = "menu" | "kitchen" | "sold-out" | "dashboard" | "admin-menu" | "hours";
+
+function onSignout() {
+  signout();
+  redirect("/signin");
+}
+
+<Layout (section: Section = "menu")>
+  <div class="app">
+    <header class="site-header">
+      <div class="site-header-inner row">
+        <a class="site-brand row" href={session.isLoggedIn() ? (session.get("role") === "owner" ? "/admin" : "/kitchen") : "/"}>
+          <BrandMark />
+          <span>
+            {config.restaurant.name}
+            <small e:if={session.isLoggedIn()}>orderhatch · {session.get("role") === "owner" ? "owner" : "kitchen"}</small>
+            <small e:else>order ahead for pickup</small>
+          </span>
+        </a>
+
+        <nav class="site-nav cluster is-xs" e:if={session.isLoggedIn()}>
+          <a href="/kitchen" class={[section === "kitchen" && "is-active"]}>Kitchen</a>
+          <a href="/kitchen/sold-out" class={[section === "sold-out" && "is-active"]}>Sold out</a>
+          <a e:if={session.get("role") === "owner"} href="/admin" class={[section === "dashboard" && "is-active"]}>Today</a>
+          <a e:if={session.get("role") === "owner"} href="/admin/menu" class={[section === "admin-menu" && "is-active"]}>Menu</a>
+          <a e:if={session.get("role") === "owner"} href="/admin/hours" class={[section === "hours" && "is-active"]}>Hours</a>
+          <a href="/" class={[section === "menu" && "is-active"]}>Order page</a>
+        </nav>
+
+        <div class="site-user row" e:if={session.isLoggedIn()}>
+          <span class="site-user-name">{session.get("userName")}</span>
+          <button class="is-sm is-ghost" type="button" onclick={() => onSignout()}>Sign out</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <slot/>
+    </main>
+
+    <footer class="site-footer">
+      <div class="site-footer-inner cluster">
+        <span>{config.restaurant.name} · {config.restaurant.address} · {config.restaurant.phone}</span>
+        <a e:if={!session.isLoggedIn()} href="/signin">Staff sign in</a>
+      </div>
+    </footer>
+  </div>
+</Layout>
+
+<BrandMark>
+  <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
+    <path d="M3 22a13 13 0 0 1 26 0z" fill="currentColor" />
+    <path d="M7 21.5a9 9 0 0 1 18 0" fill="none" stroke="var(--bg)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="0.1 3.2" />
+    <rect x="3" y="23.5" width="26" height="2.5" rx="1.25" fill="currentColor" opacity="0.45" />
+  </svg>
+</BrandMark>

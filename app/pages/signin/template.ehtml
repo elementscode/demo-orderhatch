@@ -1,0 +1,118 @@
+import "./style.css";
+import { redirect } from "@elements/app";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+import { Layout } from "#app/shared/templates/layout";
+import { signin } from "#app/shared/services/auth";
+
+interface SigninForm {
+  email: string;
+  password: string;
+  error: string;
+  busy: boolean;
+}
+
+interface DemoAccount {
+  id: string;
+  label: string;
+  role: string;
+  email: string;
+  password: string;
+}
+
+/** The seeded accounts, shown on the page so anyone can try both sides. */
+const DEMO_ACCOUNTS: DemoAccount[] = [
+  { id: "owner", label: "Owner", role: "Menu, hours, today's orders and revenue", email: "owner@orderhatch.test", password: "hatch-owner" },
+  { id: "kitchen", label: "Kitchen staff", role: "Kitchen display and sold-out items", email: "kitchen@orderhatch.test", password: "hatch-kitchen" },
+];
+
+function onSubmit(form: SigninForm) {
+  form.busy = true;
+
+  try {
+    let home = signin(form.email, form.password);
+    form.error = "";
+    redirect(home);
+  } catch (err: any) {
+    form.error = err.message;
+    form.busy = false;
+  }
+}
+
+function onUseAccount(form: SigninForm, account: DemoAccount) {
+  form.email = account.email;
+  form.password = account.password;
+  onSubmit(form);
+}
+
+<html lang="en" class="page-signin" (
+  private form: SigninForm = { email: "", password: "", error: "", busy: false },
+)>
+  <head>
+    <title>Staff sign in · orderhatch</title>
+    <meta name="description" content="Sign in to the kitchen display or the owner dashboard.">
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <Layout section="menu">
+      <div class="signin-wrap page-shell">
+        <div class="signin-grid">
+          <form class="card" onsubmit={() => onSubmit(form)}>
+            <div class="card-body stack">
+              <div class="stack is-xs">
+                <h1>Staff sign in</h1>
+                <p class="hint">The kitchen display and the owner's dashboard.</p>
+              </div>
+
+              <div e:if={form.error} class="callout is-danger" role="alert">{form.error}</div>
+
+              <div class="field">
+                <label for="email">Email</label>
+                <input id="email"
+                       name="email"
+                       type="email"
+                       value={form.email}
+                       autocomplete="email"
+                       autocapitalize="none"
+                       spellcheck={false}
+                       required>
+              </div>
+
+              <div class="field">
+                <label for="password">Password</label>
+                <input id="password"
+                       name="password"
+                       type="password"
+                       value={form.password}
+                       autocomplete="current-password"
+                       required>
+              </div>
+
+              <button type="submit" class={["is-primary", "is-block", form.busy && "is-loading"]} disabled={form.busy}>Sign in</button>
+            </div>
+          </form>
+
+          <section class="card signin-demo">
+            <div class="card-head">
+              <h2>Demo logins</h2>
+            </div>
+            <div class="card-body">
+              <div class="signin-account row" e:for={account of DEMO_ACCOUNTS}>
+                <div class="stack is-xs">
+                  <strong>{account.label}</strong>
+                  <span class="hint">{account.role}</span>
+                  <dl>
+                    <dt>email</dt>
+                    <dd>{account.email}</dd>
+                    <dt>password</dt>
+                    <dd>{account.password}</dd>
+                  </dl>
+                </div>
+                <button type="button" class="is-sm" onclick={() => onUseAccount(form, account)}>Sign in</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </Layout>
+  </body>
+</html>

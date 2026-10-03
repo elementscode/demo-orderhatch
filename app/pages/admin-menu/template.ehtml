@@ -1,0 +1,223 @@
+import "./style.css";
+import { LiveView } from "@elements/app";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+import { Layout } from "#app/shared/templates/layout";
+import { money } from "#app/shared/format";
+import { Category, MenuItem, OptionGroup, isSoldOut, itemsIn } from "#app/shared/menu";
+import { PHOTOS, photoUrl } from "#app/shared/photos";
+
+interface GroupToggle {
+  id: string;
+  name: string;
+  on: boolean;
+}
+
+/** The row being edited, as a buffer so half-typed changes never reach customers. */
+interface Draft {
+  id: string;
+  name: string;
+  description: string;
+  price: string;
+  categoryId: string;
+  photo: string;
+  hidden: boolean;
+  groups: GroupToggle[];
+  error: string;
+}
+
+function emptyDraft(): Draft {
+  return { id: "", name: "", description: "", price: "", categoryId: "", photo: "", hidden: false, groups: [], error: "" };
+}
+
+function photoChoices(): { id: string; label: string }[] {
+  return Object.keys(PHOTOS).map((key) => ({ id: key, label: key.replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase()) }));
+}
+
+function onEdit(draft: Draft, item: MenuItem, groups: OptionGroup[]) {
+  Object.assign(draft, {
+    id: item.id,
+    name: item.name,
+    description: item.description,
+    price: (item.priceCents / 100).toFixed(2),
+    categoryId: item.categoryId,
+    photo: item.photo,
+    hidden: item.hidden,
+    groups: groups.map((g) => ({ id: g.id, name: g.name, on: item.optionGroupIds.includes(g.id) })),
+    error: "",
+  });
+}
+
+function onCancel(draft: Draft) {
+  draft.id = "";
+}
+
+function onSave(menu: LiveView<MenuItem>, draft: Draft, item: MenuItem) {
+  let cents = Math.round(Number(draft.price) * 100);
+
+  if (!draft.name.trim()) {
+    draft.error = "Give the item a name.";
+    return;
+  }
+
+  if (!Number.isFinite(cents) || cents < 0) {
+    draft.error = "Enter a price like 10.50.";
+    return;
+  }
+
+  menu.update({
+    ...item,
+    name: draft.name.trim(),
+    description: draft.description.trim(),
+    priceCents: cents,
+    categoryId: draft.categoryId,
+    photo: draft.photo,
+    hidden: draft.hidden,
+    optionGroupIds: draft.groups.filter((g) => g.on).map((g) => g.id),
+  }, () => draft.id = "");
+}
+
+function onAddItem(menu: LiveView<MenuItem>, draft: Draft, category: Category, groups: OptionGroup[]) {
+  let last = itemsIn(menu, category.id, true).at(-1);
+  let item = menu.insert({
+    categoryId: category.id,
+    name: "New item",
+    description: "",
+    priceCents: 0,
+    photo: "",
+    optionGroupIds: [],
+    hidden: true,
+    soldOutUntil: null,
+    position: (last?.position ?? 0) + 1,
+    createdAt: new Date(),
+  });
+
+  onEdit(draft, item, groups);
+}
+
+function onDelete(menu: LiveView<MenuItem>, draft: Draft, item: MenuItem) {
+  if (!confirm(`Delete ${item.name} from the menu? Past orders keep their line items.`)) {
+    return;
+  }
+
+  draft.id = "";
+  menu.delete(item);
+}
+
+<html lang="en" class="page-admin-menu" (
+  menu: LiveView<MenuItem>,
+  categories: Category[],
+  groups: OptionGroup[],
+  private draft: Draft = emptyDraft(),
+)>
+  <head>
+    <title>Menu · orderhatch</title>
+    <meta name="description" content="Edit the menu.">
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <Layout section="admin-menu">
+      <div class="menu-admin page-shell stack is-lg">
+        <div class="menu-admin-head stack is-xs">
+          <h1>Menu</h1>
+          <p>Changes go live on the order page as soon as you save. New items start hidden until you're ready.</p>
+        </div>
+
+        <section e:for={category of categories} class="card">
+          <div class="card-head">
+            <h2>{category.name}</h2>
+            <button type="button" class="is-sm" onclick={() => onAddItem(menu, draft, category, groups)}>Add item</button>
+          </div>
+
+          <ul class="menu-rows">
+            <li e:for={item of itemsIn(menu, category.id, true)} class={["menu-row", item.hidden && "is-hidden"]}>
+              <img e:if={photoUrl(item.photo)} src={photoUrl(item.photo)} alt="" width="56" height="42">
+              <span e:else class="thumb"></span>
+
+              <div>
+                <div class="menu-row-name">{item.name}</div>
+                <div class="menu-row-desc line-clamp-1">{item.description}</div>
+              </div>
+
+              <div class="cluster is-xs">
+                <span e:if={item.hidden} class="pill">Hidden</span>
+                <span e:if={isSoldOut(item)} class="pill is-danger">Sold out today</span>
+                <span class="menu-row-price">{money(item.priceCents)}</span>
+              </div>
+
+              <button type="button" class="is-sm is-ghost" onclick={() => draft.id === item.id ? onCancel(draft) : onEdit(draft, item, groups)}>
+                {draft.id === item.id ? "Close" : "Edit"}
+              </button>
+
+              <form e:if={draft.id === item.id} class="editor stack" onsubmit={() => onSave(menu, draft, item)}>
+                <div e:if={draft.error} class="callout is-danger" role="alert">{draft.error}</div>
+
+                <div class="editor-grid">
+                  <div class="stack">
+                    <div class="field">
+                      <label for={`name-${item.id}`}>Name</label>
+                      <input id={`name-${item.id}`} value={draft.name} required>
+                    </div>
+
+                    <div class="field">
+                      <label for={`desc-${item.id}`}>Description</label>
+                      <textarea id={`desc-${item.id}`} rows={2} value={draft.description}></textarea>
+                    </div>
+
+                    <div class="row is-start" style="gap: var(--space-4)">
+                      <div class="field">
+                        <label for={`price-${item.id}`}>Price ($)</label>
+                        <input id={`price-${item.id}`} type="text" inputmode="decimal" value={draft.price} required>
+                      </div>
+
+                      <div class="field">
+                        <label for={`cat-${item.id}`}>Category</label>
+                        <select id={`cat-${item.id}`} value={draft.categoryId}>
+                          <option e:for={c of categories} value={c.id}>{c.name}</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div class="field">
+                      <label>Options customers choose</label>
+                      <div class="editor-groups cluster">
+                        <label e:for={g of draft.groups}>
+                          <input type="checkbox" checked={g.on}>
+                          {g.name}
+                        </label>
+                      </div>
+                    </div>
+
+                    <label class="row is-start text-sm" style="gap: var(--space-2)">
+                      <input type="checkbox" checked={draft.hidden}>
+                      Hide from the order page
+                    </label>
+                  </div>
+
+                  <div class="stack is-sm">
+                    <img e:if={photoUrl(draft.photo)} class="editor-photo" src={photoUrl(draft.photo)} alt="" width="240" height="180">
+                    <span e:else class="editor-photo"></span>
+                    <div class="field">
+                      <label for={`photo-${item.id}`}>Photo</label>
+                      <select id={`photo-${item.id}`} value={draft.photo}>
+                        <option value="">No photo</option>
+                        <option e:for={choice of photoChoices()} value={choice.id}>{choice.label}</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="editor-foot row">
+                  <button type="button" class="is-ghost is-danger is-sm" onclick={() => onDelete(menu, draft, item)}>Delete item</button>
+                  <div class="cluster is-sm">
+                    <button type="button" class="is-ghost" onclick={() => onCancel(draft)}>Cancel</button>
+                    <button type="submit" class="is-primary">Save</button>
+                  </div>
+                </div>
+              </form>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </Layout>
+  </body>
+</html>

@@ -1,0 +1,171 @@
+@import "#app/shared/styles/page.css";
+
+.status-wrap {
+  width: 100%;
+  padding: var(--space-10) var(--space-5) var(--space-16);
+}
+
+.status-head {
+  text-align: center;
+}
+
+.status-head h1 {
+  margin: 0;
+  font-size: clamp(var(--text-3xl), 5vw, var(--text-5xl));
+  letter-spacing: var(--tracking-tight);
+}
+
+.status-head p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--ink-dim);
+}
+
+.step-bar {
+  width: 100%;
+  height: 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--bg-muted);
+  overflow: hidden;
+}
+
+.step-bar::after {
+  content: "";
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width var(--duration-slow) var(--ease-out);
+}
+
+.step.is-done,
+.step.is-current {
+  color: var(--ink);
+  font-weight: var(--weight-semibold);
+}
+
+.step.is-done .step-bar::after {
+  width: 100%;
+}
+
+.step.is-current .step-bar::after {
+  width: 55%;
+  animation: step-pulse 1.8s ease-in-out infinite;
+}
+
+.step.is-ready .step-bar::after {
+  background: var(--success);
+}
+
+@keyframes step-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.status-banner {
+  padding: var(--space-5);
+  border-radius: var(--radius-xl);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-edge);
+  text-align: center;
+}
+
+.status-banner.is-ready {
+  background: var(--success-soft);
+  border-color: var(--success-edge);
+}
+
+.status-banner strong {
+  display: block;
+  font-size: var(--text-xl);
+}
+
+.status-banner span {
+  color: var(--ink-soft);
+}
+
+.status-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.status-lines li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.status-lines small {
+  display: block;
+  color: var(--ink-soft);
+}
+
+.status-lines .amount {
+  font-variant-numeric: tabular-nums;
+}
+
+.status-totals {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.status-totals dt {
+  color: var(--ink-soft);
+}
+
+.status-totals dd {
+  margin: 0;
+  text-align: end;
+}
+
+.status-totals .is-total {
+  font-weight: var(--weight-semibold);
+  color: var(--ink);
+}
+
+.status-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1-5) var(--space-5);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.status-facts dt {
+  color: var(--ink-soft);
+}
+
+.status-facts dd {
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step.is-current .step-bar::after {
+    animation: none;
+  }
+}

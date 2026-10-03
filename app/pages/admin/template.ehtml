@@ -1,0 +1,215 @@
+import "./style.css";
+import { LiveView } from "@elements/app";
+import config from "#config";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+import { Layout } from "#app/shared/templates/layout";
+import { clock, money } from "#app/shared/format";
+import { Ticket, placedAt } from "#app/shared/tickets";
+
+interface HourBar {
+  id: string;
+  label: string;
+  cents: number;
+  orders: number;
+}
+
+interface TopItem {
+  id: string;
+  name: string;
+  quantity: number;
+}
+
+const STATUS_PILL: Record<string, string> = {
+  new: "pill is-accent",
+  preparing: "pill is-info",
+  ready: "pill is-success",
+  done: "pill",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  new: "New",
+  preparing: "Preparing",
+  ready: "Ready",
+  done: "Picked up",
+};
+
+function paid(orders: LiveView<Ticket>): Ticket[] {
+  return orders.filter((o) => o.status !== "pending");
+}
+
+function revenue(orders: LiveView<Ticket>): number {
+  return paid(orders).reduce((sum, o) => sum + o.totalCents, 0);
+}
+
+function average(orders: LiveView<Ticket>): number {
+  let list = paid(orders);
+
+  return list.length === 0 ? 0 : Math.round(revenue(orders) / list.length);
+}
+
+function inKitchen(orders: LiveView<Ticket>): number {
+  return orders.filter((o) => o.status === "new" || o.status === "preparing").length;
+}
+
+function hourOf(date: Date): number {
+  return Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hourCycle: "h23", timeZone: config.restaurant.timeZone }).format(date));
+}
+
+function hourLabel(hour: number): string {
+  let h = hour % 12 === 0 ? 12 : hour % 12;
+
+  return `${h}${hour < 12 ? "a" : "p"}`;
+}
+
+/** Revenue per hour from opening to now, so an empty hour shows as a gap, not a missing bar. */
+function byHour(orders: LiveView<Ticket>): HourBar[] {
+  let list = paid(orders);
+  let hours = list.map((o) => hourOf(placedAt(o)));
+  let first = Math.min(10, ...hours);
+  let last = Math.max(hourOf(new Date()), ...hours);
+  let bars: HourBar[] = [];
+
+  for (let h = first; h <= last; h++) {
+    let these = list.filter((o) => hourOf(placedAt(o)) === h);
+    bars.push({ id: String(h), label: hourLabel(h), cents: these.reduce((s, o) => s + o.totalCents, 0), orders: these.length });
+  }
+
+  return bars;
+}
+
+function barHeight(bar: HourBar, bars: HourBar[]): string {
+  let max = Math.max(1, ...bars.map((b) => b.cents));
+
+  return `${(bar.cents / max) * 100}%`;
+}
+
+function topItems(orders: LiveView<Ticket>): TopItem[] {
+  let counts = new Map<string, number>();
+
+  for (let order of paid(orders)) {
+    for (let item of order.items) {
+      counts.set(item.name, (counts.get(item.name) ?? 0) + item.quantity);
+    }
+  }
+
+  return [...counts.entries()]
+    .map(([name, quantity]) => ({ id: name, name, quantity }))
+    .sort((a, b) => b.quantity - a.quantity)
+    .slice(0, 6);
+}
+
+function newestFirst(orders: LiveView<Ticket>): Ticket[] {
+  return paid(orders).sort((a, b) => placedAt(b).getTime() - placedAt(a).getTime());
+}
+
+function itemSummary(order: Ticket): string {
+  return order.items.map((i) => `${i.quantity}× ${i.name}`).join(", ");
+}
+
+<html lang="en" class="page-admin" (orders: LiveView<Ticket>)>
+  <head>
+    <title>Today · orderhatch</title>
+    <meta name="description" content="Today's orders and revenue.">
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <Layout section="dashboard">
+      <div class="dash page-shell is-wide stack is-lg">
+        <div class="dash-head row">
+          <div class="stack is-xs">
+            <h1>Today</h1>
+            <p>{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: config.restaurant.timeZone })} · updates as orders come in</p>
+          </div>
+        </div>
+
+        <div class="tiles">
+          <div class="tile">
+            <div class="tile-label">Revenue</div>
+            <div class="tile-value">{money(revenue(orders))}</div>
+            <div class="tile-note">incl. tax, paid by card</div>
+          </div>
+          <div class="tile">
+            <div class="tile-label">Orders</div>
+            <div class="tile-value">{paid(orders).length}</div>
+            <div class="tile-note">paid today</div>
+          </div>
+          <div class="tile">
+            <div class="tile-label">Average order</div>
+            <div class="tile-value">{money(average(orders))}</div>
+            <div class="tile-note">per paid order</div>
+          </div>
+          <div class="tile">
+            <div class="tile-label">In the kitchen</div>
+            <div class="tile-value">{inKitchen(orders)}</div>
+            <div class="tile-note">{orders.filter((o) => o.status === "ready").length} waiting for pickup</div>
+          </div>
+        </div>
+
+        <div class="dash-grid">
+          <section class="card">
+            <div class="card-head">
+              <h2>Revenue by hour</h2>
+            </div>
+            <div class="card-body">
+              <div class="chart" style={`--bars: ${byHour(orders).length}`} role="img" aria-label="Revenue by hour today">
+                <div e:for={bar of byHour(orders)} class="chart-bar" tabindex={0}>
+                  <span style={`height: ${barHeight(bar, byHour(orders))}`}></span>
+                  <div class="chart-tip">{bar.label}: {money(bar.cents)} · {bar.orders} {bar.orders === 1 ? "order" : "orders"}</div>
+                </div>
+              </div>
+              <div class="chart-axis" style={`--bars: ${byHour(orders).length}`} aria-hidden="true">
+                <span e:for={bar of byHour(orders)}>{bar.label}</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-head">
+              <h2>Top items</h2>
+            </div>
+            <div class="card-body">
+              <ol class="top-items">
+                <li e:for={item of topItems(orders)} class="row">
+                  <span>{item.name}</span>
+                  <span>{item.quantity} sold</span>
+                </li>
+              </ol>
+              <p e:if={topItems(orders).length === 0} class="dash-empty">No orders yet today.</p>
+            </div>
+          </section>
+        </div>
+
+        <section class="card">
+          <div class="card-head">
+            <h2>Orders</h2>
+          </div>
+          <div class="card-body table-scroll">
+            <table class="orders-table">
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Paid</th>
+                  <th>Customer</th>
+                  <th class="items">Items</th>
+                  <th>Status</th>
+                  <th class="num">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr e:for={order of newestFirst(orders)}>
+                  <td><a href={`/orders/${order.id}`}>#{order.number}</a></td>
+                  <td>{clock(placedAt(order))}</td>
+                  <td>{order.customerName}</td>
+                  <td class="items">{itemSummary(order)}</td>
+                  <td><span class={STATUS_PILL[order.status] ?? "pill"}>{STATUS_LABEL[order.status] ?? order.status}</span></td>
+                  <td class="num">{money(order.totalCents)}</td>
+                </tr>
+              </tbody>
+            </table>
+            <p e:if={paid(orders).length === 0} class="dash-empty">No orders yet today.</p>
+          </div>
+        </section>
+      </div>
+    </Layout>
+  </body>
+</html>
