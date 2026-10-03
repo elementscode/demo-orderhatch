@@ -1,0 +1,165 @@
+import "./style.css";
+import { LiveView } from "@elements/app";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+import { Layout } from "#app/shared/templates/layout";
+import { clock, elapsed, minutesSince } from "#app/shared/format";
+import { OrderStatus, Ticket, choiceSummary, nextStatus, placedAt, previousStatus } from "#app/shared/tickets";
+
+interface Column {
+  id: OrderStatus;
+  title: string;
+  action: string;
+  empty: string;
+}
+
+const COLUMNS: Column[] = [
+  { id: "new", title: "New", action: "Start", empty: "No new orders. They appear here the moment they're paid." },
+  { id: "preparing", title: "Preparing", action: "Mark ready", empty: "Nothing on the line." },
+  { id: "ready", title: "Ready", action: "Picked up", empty: "Nothing waiting on the pass." },
+];
+
+/** Minutes after which a ticket's timer turns amber, then red. */
+const WARM_MINUTES = 8;
+const LATE_MINUTES = 15;
+
+function inColumn(tickets: LiveView<Ticket>, status: OrderStatus): Ticket[] {
+  return tickets
+    .filter((t) => t.status === status)
+    .sort((a, b) => placedAt(a).getTime() - placedAt(b).getTime());
+}
+
+function recentlyDone(tickets: LiveView<Ticket>): Ticket[] {
+  return tickets
+    .filter((t) => t.status === "done")
+    .sort((a, b) => new Date(b.statusAt).getTime() - new Date(a.statusAt).getTime())
+    .slice(0, 8);
+}
+
+function timerClass(t: Ticket, now: Date): string[] {
+  let minutes = minutesSince(placedAt(t), now);
+
+  return ["ticket-timer", minutes >= LATE_MINUTES ? "is-late" : minutes >= WARM_MINUTES ? "is-warm" : ""];
+}
+
+/** A scheduled order the kitchen should not start yet. */
+function scheduledFor(t: Ticket, now: Date): string {
+  if (!t.pickupAt) {
+    return "";
+  }
+
+  return new Date(t.pickupAt).getTime() > now.getTime() ? clock(t.pickupAt) : "";
+}
+
+function itemCount(t: Ticket): number {
+  return t.items.reduce((n, item) => n + item.quantity, 0);
+}
+
+function onAdvance(tickets: LiveView<Ticket>, ticket: Ticket) {
+  tickets.update({ ...ticket, status: nextStatus(ticket.status), statusAt: new Date() });
+}
+
+function onUndo(tickets: LiveView<Ticket>, ticket: Ticket) {
+  tickets.update({ ...ticket, status: previousStatus(ticket.status), statusAt: new Date() });
+}
+
+function onTick(now: { value: Date }) {
+  now.value = new Date();
+}
+
+/** Tickets that arrive after the page loaded flash once, so a cook notices. */
+function onTicketInsert(e: { target: Element }, loadedAt: Date, ticket: Ticket) {
+  if (placedAt(ticket).getTime() > loadedAt.getTime()) {
+    e.target.classList.add("is-fresh");
+  }
+}
+
+<html lang="en" class="page-kitchen" data-theme="dark" (
+  tickets: LiveView<Ticket>,
+  private now: { value: Date } = { value: new Date() },
+  private loadedAt: Date = new Date(),
+) oninit={() => setInterval(() => onTick(now), 1000)}>
+  <head>
+    <title>Kitchen · orderhatch</title>
+    <meta name="description" content="Kitchen display">
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <Layout section="kitchen">
+      <div class="kitchen">
+        <div class="kitchen-bar row">
+          <h1>Kitchen</h1>
+          <div class="kitchen-stats cluster is-md">
+            <span><strong>{inColumn(tickets, "new").length + inColumn(tickets, "preparing").length}</strong> in progress</span>
+            <span><strong>{inColumn(tickets, "done").length}</strong> picked up today</span>
+            <span>{clock(now.value)}</span>
+          </div>
+        </div>
+
+        <div class="kitchen-board">
+          <section e:for={column of COLUMNS} class={["kitchen-col", `is-${column.id}`]} aria-label={column.title}>
+            <div class="kitchen-col-head row">
+              <span>{column.title}</span>
+              <span class="count">{inColumn(tickets, column.id).length}</span>
+            </div>
+
+            <div class="stack is-sm">
+              <article e:for={ticket of inColumn(tickets, column.id)}
+                       class="ticket"
+                       oninsert={(e) => onTicketInsert(e, loadedAt, ticket)}>
+                <button type="button"
+                        class="ticket-tap"
+                        aria-label={`Order ${ticket.number}: ${column.action}`}
+                        onclick={() => onAdvance(tickets, ticket)}>
+                  <div class="ticket-head row">
+                    <div>
+                      <div class="ticket-number">#{ticket.number}</div>
+                      <div class="ticket-name">{ticket.customerName}</div>
+                    </div>
+                    <span class={timerClass(ticket, now.value)}>{elapsed(placedAt(ticket), now.value)}</span>
+                  </div>
+
+                  <div class="ticket-meta cluster">
+                    <span>Paid {clock(placedAt(ticket))}</span>
+                    <span>{itemCount(ticket)} {itemCount(ticket) === 1 ? "item" : "items"}</span>
+                    <span e:if={scheduledFor(ticket, now.value)} class="pill is-info is-sm">Pickup {scheduledFor(ticket, now.value)}</span>
+                    <span e:else class="pill is-sm">ASAP</span>
+                  </div>
+
+                  <ul class="ticket-items">
+                    <li e:for={item of ticket.items} class="ticket-item">
+                      <span class="ticket-qty">{item.quantity}×</span>
+                      <span>
+                        <strong>{item.name}</strong>
+                        <span e:if={item.choices.length > 0} class="ticket-choices">{choiceSummary(item.choices)}</span>
+                      </span>
+                    </li>
+                  </ul>
+                </button>
+
+                <div class="ticket-foot row">
+                  <span class="ticket-next">{column.action} →</span>
+                  <button e:if={column.id !== "new"}
+                          type="button"
+                          class="is-ghost is-sm"
+                          onclick={() => onUndo(tickets, ticket)}>Undo</button>
+                </div>
+              </article>
+
+              <p e:if={inColumn(tickets, column.id).length === 0} class="kitchen-empty">{column.empty}</p>
+            </div>
+          </section>
+        </div>
+
+        <details class="kitchen-done" e:if={recentlyDone(tickets).length > 0}>
+          <summary>Recently picked up</summary>
+          <ul>
+            <li e:for={ticket of recentlyDone(tickets)} class="row">
+              <span>#{ticket.number} · {ticket.customerName} · {clock(ticket.statusAt)}</span>
+              <button type="button" class="is-ghost is-sm" onclick={() => onUndo(tickets, ticket)}>Back to ready</button>
+            </li>
+          </ul>
+        </details>
+      </div>
+    </Layout>
+  </body>
+</html>
