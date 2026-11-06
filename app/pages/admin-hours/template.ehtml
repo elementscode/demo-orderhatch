@@ -50,14 +50,12 @@ export function saveHours(days: Day[]): Day[] {
   return loadHours();
 }
 
-function onSave(days: Day[], state: { error: string; saved: boolean; busy: boolean }): Day[] {
+function onSave(days: Day[], state: { error: string; busy: boolean }): Day[] {
   state.busy = true;
-  state.saved = false;
   state.error = "";
 
   try {
     let fresh = saveHours(days);
-    state.saved = true;
     toast.success("Saved. The order page uses the new hours now.");
 
     return fresh;
@@ -72,7 +70,7 @@ function onSave(days: Day[], state: { error: string; saved: boolean; busy: boole
 
 <html lang="en" class="page-admin-hours" (
   days: Day[],
-  private state: { error: string; saved: boolean; busy: boolean } = { error: "", saved: false, busy: false },
+  private state: { error: string; busy: boolean } = { error: "", busy: false },
 )>
   <head>
     <title>Hours · orderhatch</title>
@@ -104,11 +102,11 @@ function onSave(days: Day[], state: { error: string; saved: boolean; busy: boole
                 <tbody>
                   <tr e:for={day of days}>
                     <TableCell>{NAMES[day.weekday]}</TableCell>
-                    <TableCell><TimePicker value={day.opensAt} disabled={day.closed} label={`${NAMES[day.weekday]} opens`} onValueChange={() => state.saved = false} /></TableCell>
-                    <TableCell><TimePicker value={day.closesAt} disabled={day.closed} label={`${NAMES[day.weekday]} closes`} onValueChange={() => state.saved = false} /></TableCell>
+                    <TableCell><TimePicker value={day.opensAt} disabled={day.closed} label={`${NAMES[day.weekday]} opens`} /></TableCell>
+                    <TableCell><TimePicker value={day.closesAt} disabled={day.closed} label={`${NAMES[day.weekday]} closes`} /></TableCell>
                     <TableCell>
                       <label class="hours-closed">
-                        <Checkbox checked={day.closed} onCheckedChange={() => state.saved = false} />
+                        <Checkbox checked={day.closed} />
                         Closed
                       </label>
                     </TableCell>
