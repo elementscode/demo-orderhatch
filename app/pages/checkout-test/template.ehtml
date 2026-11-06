@@ -7,6 +7,9 @@ import { clock, money } from "#app/shared/format";
 import { choiceSummary } from "#app/shared/tickets";
 import { CheckoutOrder } from "#app/shared/services/checkout";
 import { payTestOrder } from "./services";
+import { Badge } from "@elements/ui/badge";
+import { Button } from "@elements/ui/button";
+import { Card, CardContent } from "@elements/ui/card";
 
 interface PayState {
   busy: boolean;
@@ -39,14 +42,14 @@ async function onPay(order: CheckoutOrder, pay: PayState) {
     <Layout section="menu">
       <div class="checkout-wrap page-shell is-form stack is-lg">
         <div class="checkout-head stack is-sm">
-          <span class="pill is-warning checkout-badge"><span class="pill-dot"></span>Test mode</span>
+          <Badge variant="warning" dot class="checkout-badge">Test mode</Badge>
           <p class="eyebrow">Order #{order.number} · {order.customerName}</p>
           <h1>Pay {money(order.totalCents)}</h1>
           <p>{order.pickupAt ? `Pickup at ${clock(order.pickupAt)}` : "Pickup as soon as it's ready"} · {config.restaurant.name}</p>
         </div>
 
-        <section class="card checkout-card">
-          <div class="card-body stack">
+        <Card class="checkout-card">
+          <CardContent class="stack">
             <ul class="checkout-lines">
               <li e:for={line of order.lines}>
                 <span class="checkout-qty">{line.quantity}</span>
@@ -67,19 +70,16 @@ async function onPay(order: CheckoutOrder, pay: PayState) {
               <dd class="is-total">{money(order.totalCents)}</dd>
             </dl>
 
-            <p e:if={pay.error} class="field-error">{pay.error}</p>
+            <p e:if={pay.error} class="error">{pay.error}</p>
 
             <div class="stack is-sm">
-              <button type="button"
-                      class={["is-primary", "is-lg", "is-block", pay.busy && "is-loading"]}
-                      disabled={pay.busy}
-                      onclick={() => onPay(order, pay)}>
+              <Button variant="primary" size="lg" block loading={pay.busy} onclick={() => onPay(order, pay)}>
                 Pay {money(order.totalCents)}
-              </button>
+              </Button>
               <a class="checkout-cancel" href={`/orders/${order.id}`}>Cancel and go back</a>
             </div>
-          </div>
-        </section>
+          </CardContent>
+        </Card>
 
         <p class="checkout-note">
           This is the app's test checkout: no card is charged and no card details are asked for.

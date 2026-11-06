@@ -6,6 +6,9 @@ import { Layout } from "#app/shared/templates/layout";
 import { clock, money } from "#app/shared/format";
 import { OrderStatus, Ticket, choiceSummary } from "#app/shared/tickets";
 import { resumePayment } from "#app/shared/services/checkout";
+import { Alert, AlertDescription, AlertTitle } from "@elements/ui/alert";
+import { Button } from "@elements/ui/button";
+import { Card, CardContent } from "@elements/ui/card";
 
 interface Step {
   id: string;
@@ -90,13 +93,13 @@ async function onResume(ticket: Ticket, pay: { busy: boolean; error: string }) {
             <p>{pickupLine(ticket)} · {config.restaurant.address}</p>
           </div>
 
-          <div e:if={ticket.status === "pending"} class="callout is-warning stack is-sm">
-            <p>This order isn't paid yet, so the kitchen hasn't seen it. Finish paying to send it to the kitchen.</p>
-            <p e:if={pay.error} class="field-error">{pay.error}</p>
-            <button type="button" class={["is-primary", pay.busy && "is-loading"]} disabled={pay.busy} onclick={() => onResume(ticket, pay)}>
-              Pay {money(ticket.totalCents)}
-            </button>
-          </div>
+          <Alert e:if={ticket.status === "pending"} variant="warning" role="none">
+            <AlertDescription class="stack is-sm">
+              <p>This order isn't paid yet, so the kitchen hasn't seen it. Finish paying to send it to the kitchen.</p>
+              <p e:if={pay.error} class="error">{pay.error}</p>
+              <div><Button variant="primary" loading={pay.busy} onclick={() => onResume(ticket, pay)}>Pay {money(ticket.totalCents)}</Button></div>
+            </AlertDescription>
+          </Alert>
 
           <ol e:if={ticket.status !== "pending"} class="steps" aria-label="Order progress">
             <li e:for={step of STEPS} class={stepClass(ticket, step)}>
@@ -105,20 +108,17 @@ async function onResume(ticket: Ticket, pay: { busy: boolean; error: string }) {
             </li>
           </ol>
 
-          <div e:if={ticket.status === "ready"} class="status-banner is-ready" role="status">
-            <strong>Come on by, {ticket.customerName.split(" ")[0]}.</strong>
-            <span>Give the name {ticket.customerName} or order #{ticket.number} at the pickup window.</span>
-          </div>
-          <div e:elseif={ticket.status === "new" || ticket.status === "preparing"} class="status-banner" role="status">
-            <strong>{ticket.status === "new" ? "Order received" : "Cooking now"}</strong>
-            <span>This page updates by itself. You'll also get a receipt at {ticket.email}.</span>
-          </div>
+          <Alert e:if={ticket.status === "ready"} variant="success" role="status" class="status-banner">
+            <AlertTitle>Come on by, {ticket.customerName.split(" ")[0]}.</AlertTitle>
+            <AlertDescription>Give the name {ticket.customerName} or order #{ticket.number} at the pickup window.</AlertDescription>
+          </Alert>
+          <Alert e:elseif={ticket.status === "new" || ticket.status === "preparing"} variant="accent" role="status" class="status-banner">
+            <AlertTitle>{ticket.status === "new" ? "Order received" : "Cooking now"}</AlertTitle>
+            <AlertDescription>This page updates by itself. You'll also get a receipt at {ticket.email}.</AlertDescription>
+          </Alert>
 
-          <section class="card">
-            <div class="card-head">
-              <h2>Your order</h2>
-            </div>
-            <div class="card-body stack">
+          <Card title="Your order" level={2}>
+            <CardContent class="stack">
               <ul class="status-lines">
                 <li e:for={item of ticket.items}>
                   <span>
@@ -146,8 +146,8 @@ async function onResume(ticket: Ticket, pay: { busy: boolean; error: string }) {
                 <dt e:if={ticket.paidAt}>Paid</dt>
                 <dd e:if={ticket.paidAt}>{clock(ticket.paidAt!)}</dd>
               </dl>
-            </div>
-          </section>
+            </CardContent>
+          </Card>
 
           <p class="hint">Questions about your order? Call us at {config.restaurant.phone}. <a href="/">Back to the menu</a></p>
         </div>

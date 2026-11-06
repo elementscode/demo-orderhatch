@@ -3,6 +3,8 @@ import { LiveView } from "@elements/app";
 import favicon from "#app/shared/assets/favicons/favicon.svg";
 import { Layout } from "#app/shared/templates/layout";
 import { Category, MenuItem, isSoldOut, itemsIn } from "#app/shared/menu";
+import { Card } from "@elements/ui/card";
+import { Toggle } from "@elements/ui/toggle";
 
 /**
  * The server sets the real end of the business day; this placeholder only
@@ -33,22 +35,19 @@ function soldOutCount(menu: LiveView<MenuItem>): number {
           <p class="soldout-summary" e:if={soldOutCount(menu) > 0}>{soldOutCount(menu)} sold out right now</p>
         </div>
 
-        <section e:for={category of categories} class="card">
-          <div class="card-head">
-            <h2>{category.name}</h2>
-          </div>
+        <Card e:for={category of categories} title={category.name} level={2}>
           <ul class="soldout-list">
             <li e:for={item of itemsIn(menu, category.id)} class={["soldout-item", "row", isSoldOut(item) && "is-out"]}>
               <span class="soldout-name">{item.name}</span>
-              <button type="button"
-                      class={["soldout-toggle", isSoldOut(item) ? "is-danger" : ""]}
-                      aria-pressed={isSoldOut(item)}
-                      onclick={() => onToggle(menu, item)}>
+              <Toggle variant="outline"
+                      class="soldout-toggle"
+                      pressed={isSoldOut(item)}
+                      onPressedChange={() => onToggle(menu, item)}>
                 {isSoldOut(item) ? "Sold out · undo" : "Available"}
-              </button>
+              </Toggle>
             </li>
           </ul>
-        </section>
+        </Card>
       </div>
     </Layout>
   </body>

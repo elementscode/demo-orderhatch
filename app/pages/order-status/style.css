@@ -81,26 +81,8 @@
   }
 }
 
-.status-banner {
-  padding: var(--space-5);
-  border-radius: var(--radius-xl);
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-edge);
-  text-align: center;
-}
-
-.status-banner.is-ready {
-  background: var(--success-soft);
-  border-color: var(--success-edge);
-}
-
-.status-banner strong {
-  display: block;
+.status-banner .alert-title {
   font-size: var(--text-xl);
-}
-
-.status-banner span {
-  color: var(--ink-soft);
 }
 
 .status-lines {
