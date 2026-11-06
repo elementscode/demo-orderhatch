@@ -10,17 +10,6 @@
   color: var(--ink-soft);
 }
 
-.menu-admin .card-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.menu-admin .card-head h2 {
-  margin: 0;
-}
-
 .menu-rows {
   list-style: none;
   margin: 0;
@@ -112,7 +101,7 @@
     padding: var(--space-3) var(--space-4);
   }
 
-  .menu-row .pill {
+  .menu-row .badge {
     display: none;
   }
 

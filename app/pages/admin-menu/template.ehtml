@@ -5,6 +5,16 @@ import { Layout } from "#app/shared/templates/layout";
 import { money } from "#app/shared/format";
 import { Category, MenuItem, OptionGroup, isSoldOut, itemsIn } from "#app/shared/menu";
 import { PHOTOS, photoUrl } from "#app/shared/photos";
+import { Alert } from "@elements/ui/alert";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogFooter } from "@elements/ui/alert-dialog";
+import { Badge } from "@elements/ui/badge";
+import { Button } from "@elements/ui/button";
+import { Card, CardAction } from "@elements/ui/card";
+import { Checkbox } from "@elements/ui/checkbox";
+import { Field } from "@elements/ui/field";
+import { Input } from "@elements/ui/input";
+import { NativeSelect } from "@elements/ui/native-select";
+import { Textarea } from "@elements/ui/textarea";
 
 interface GroupToggle {
   id: string;
@@ -95,10 +105,6 @@ function onAddItem(menu: LiveView<MenuItem>, draft: Draft, category: Category, g
 }
 
 function onDelete(menu: LiveView<MenuItem>, draft: Draft, item: MenuItem) {
-  if (!confirm(`Delete ${item.name} from the menu? Past orders keep their line items.`)) {
-    return;
-  }
-
   draft.id = "";
   menu.delete(item);
 }
@@ -122,11 +128,10 @@ function onDelete(menu: LiveView<MenuItem>, draft: Draft, item: MenuItem) {
           <p>Changes go live on the order page as soon as you save. New items start hidden until you're ready.</p>
         </div>
 
-        <section e:for={category of categories} class="card">
-          <div class="card-head">
-            <h2>{category.name}</h2>
-            <button type="button" class="is-sm" onclick={() => onAddItem(menu, draft, category, groups)}>Add item</button>
-          </div>
+        <Card e:for={category of categories} title={category.name} level={2}>
+          <CardAction slot="action">
+            <Button size="sm" onclick={() => onAddItem(menu, draft, category, groups)}>Add item</Button>
+          </CardAction>
 
           <ul class="menu-rows">
             <li e:for={item of itemsIn(menu, category.id, true)} class={["menu-row", item.hidden && "is-hidden"]}>
@@ -139,56 +144,49 @@ function onDelete(menu: LiveView<MenuItem>, draft: Draft, item: MenuItem) {
               </div>
 
               <div class="cluster is-xs">
-                <span e:if={item.hidden} class="pill">Hidden</span>
-                <span e:if={isSoldOut(item)} class="pill is-danger">Sold out today</span>
+                <Badge e:if={item.hidden} variant="secondary">Hidden</Badge>
+                <Badge e:if={isSoldOut(item)} variant="danger">Sold out today</Badge>
                 <span class="menu-row-price">{money(item.priceCents)}</span>
               </div>
 
-              <button type="button" class="is-sm is-ghost" onclick={() => draft.id === item.id ? onCancel(draft) : onEdit(draft, item, groups)}>
+              <Button size="sm" variant="ghost" onclick={() => draft.id === item.id ? onCancel(draft) : onEdit(draft, item, groups)}>
                 {draft.id === item.id ? "Close" : "Edit"}
-              </button>
+              </Button>
 
               <form e:if={draft.id === item.id} class="editor stack" onsubmit={() => onSave(menu, draft, item)}>
-                <div e:if={draft.error} class="callout is-danger" role="alert">{draft.error}</div>
+                <Alert e:if={draft.error} variant="danger" description={draft.error} />
 
                 <div class="editor-grid">
                   <div class="stack">
-                    <div class="field">
-                      <label for={`name-${item.id}`}>Name</label>
-                      <input id={`name-${item.id}`} value={draft.name} required>
-                    </div>
+                    <Field label="Name" required>
+                      <Input value={draft.name} />
+                    </Field>
 
-                    <div class="field">
-                      <label for={`desc-${item.id}`}>Description</label>
-                      <textarea id={`desc-${item.id}`} rows={2} value={draft.description}></textarea>
-                    </div>
+                    <Field label="Description">
+                      <Textarea rows={2} value={draft.description} />
+                    </Field>
 
                     <div class="row is-start" style="gap: var(--space-4)">
-                      <div class="field">
-                        <label for={`price-${item.id}`}>Price ($)</label>
-                        <input id={`price-${item.id}`} type="text" inputmode="decimal" value={draft.price} required>
-                      </div>
+                      <Field label="Price ($)" required>
+                        <Input value={draft.price} attrs={{ inputmode: "decimal" }} />
+                      </Field>
 
-                      <div class="field">
-                        <label for={`cat-${item.id}`}>Category</label>
-                        <select id={`cat-${item.id}`} value={draft.categoryId}>
-                          <option e:for={c of categories} value={c.id}>{c.name}</option>
-                        </select>
-                      </div>
+                      <Field label="Category">
+                        <NativeSelect value={draft.categoryId} options={categories.map((c) => ({ value: c.id, label: c.name }))} />
+                      </Field>
                     </div>
 
-                    <div class="field">
-                      <label>Options customers choose</label>
+                    <Field label="Options customers choose">
                       <div class="editor-groups cluster">
                         <label e:for={g of draft.groups}>
-                          <input type="checkbox" checked={g.on}>
+                          <Checkbox checked={g.on} />
                           {g.name}
                         </label>
                       </div>
-                    </div>
+                    </Field>
 
                     <label class="row is-start text-sm" style="gap: var(--space-2)">
-                      <input type="checkbox" checked={draft.hidden}>
+                      <Checkbox checked={draft.hidden} />
                       Hide from the order page
                     </label>
                   </div>
@@ -196,27 +194,29 @@ function onDelete(menu: LiveView<MenuItem>, draft: Draft, item: MenuItem) {
                   <div class="stack is-sm">
                     <img e:if={photoUrl(draft.photo)} class="editor-photo" src={photoUrl(draft.photo)} alt="" width="240" height="180">
                     <span e:else class="editor-photo"></span>
-                    <div class="field">
-                      <label for={`photo-${item.id}`}>Photo</label>
-                      <select id={`photo-${item.id}`} value={draft.photo}>
-                        <option value="">No photo</option>
-                        <option e:for={choice of photoChoices()} value={choice.id}>{choice.label}</option>
-                      </select>
-                    </div>
+                    <Field label="Photo">
+                      <NativeSelect value={draft.photo} block options={[{ value: "", label: "No photo" }, ...photoChoices().map((c) => ({ value: c.id, label: c.label }))]} />
+                    </Field>
                   </div>
                 </div>
 
                 <div class="editor-foot row">
-                  <button type="button" class="is-ghost is-danger is-sm" onclick={() => onDelete(menu, draft, item)}>Delete item</button>
+                  <AlertDialog title={`Delete ${item.name} from the menu?`} description="Past orders keep their line items.">
+                    <Button slot="trigger" variant="danger" size="sm">Delete item</Button>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction variant="danger" onclick={() => onDelete(menu, draft, item)}>Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialog>
                   <div class="cluster is-sm">
-                    <button type="button" class="is-ghost" onclick={() => onCancel(draft)}>Cancel</button>
-                    <button type="submit" class="is-primary">Save</button>
+                    <Button variant="ghost" onclick={() => onCancel(draft)}>Cancel</Button>
+                    <Button type="submit" variant="primary">Save</Button>
                   </div>
                 </div>
               </form>
             </li>
           </ul>
-        </section>
+        </Card>
       </div>
     </Layout>
   </body>
