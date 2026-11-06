@@ -3,6 +3,13 @@ import { sql, ValidationError } from "@elements/app";
 import favicon from "#app/shared/assets/favicons/favicon.svg";
 import { Layout } from "#app/shared/templates/layout";
 import { requireOwner } from "#app/shared/services/auth";
+import { Alert } from "@elements/ui/alert";
+import { Button } from "@elements/ui/button";
+import { Card, CardContent } from "@elements/ui/card";
+import { Checkbox } from "@elements/ui/checkbox";
+import { Table, TableCell, TableHead } from "@elements/ui/table";
+import { TimePicker } from "@elements/ui/time-picker";
+import { toast } from "@elements/ui/toast";
 
 export interface Day {
   id: string;
@@ -51,6 +58,7 @@ function onSave(days: Day[], state: { error: string; saved: boolean; busy: boole
   try {
     let fresh = saveHours(days);
     state.saved = true;
+    toast.success("Saved. The order page uses the new hours now.");
 
     return fresh;
   } catch (err: any) {
@@ -79,40 +87,40 @@ function onSave(days: Day[], state: { error: string; saved: boolean; busy: boole
           <p>Customers can order ASAP while you're open, and schedule pickups for later the same day. The last pickup slot is 15 minutes before closing.</p>
         </div>
 
-        <div e:if={state.error} class="callout is-danger" role="alert">{state.error}</div>
+        <Alert e:if={state.error} variant="danger" description={state.error} />
 
-        <div class="card">
-          <div class="card-body">
-            <table class="hours-table">
-              <thead>
-                <tr>
-                  <th>Day</th>
-                  <th>Opens</th>
-                  <th>Closes</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr e:for={day of days} class={[day.closed && "is-closed"]}>
-                  <td>{NAMES[day.weekday]}</td>
-                  <td><input type="time" value={day.opensAt} disabled={day.closed} aria-label={`${NAMES[day.weekday]} opens`} oninput={() => state.saved = false}></td>
-                  <td><input type="time" value={day.closesAt} disabled={day.closed} aria-label={`${NAMES[day.weekday]} closes`} oninput={() => state.saved = false}></td>
-                  <td>
-                    <label class="hours-closed">
-                      <input type="checkbox" checked={day.closed} onchange={() => state.saved = false}>
-                      Closed
-                    </label>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <Card>
+          <CardContent>
+            <Table class="hours-table">
+              <table>
+                <thead>
+                  <tr>
+                    <TableHead>Day</TableHead>
+                    <TableHead>Opens</TableHead>
+                    <TableHead>Closes</TableHead>
+                    <TableHead><span class="sr-only">Closed</span></TableHead>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr e:for={day of days}>
+                    <TableCell>{NAMES[day.weekday]}</TableCell>
+                    <TableCell><TimePicker value={day.opensAt} disabled={day.closed} label={`${NAMES[day.weekday]} opens`} onValueChange={() => state.saved = false} /></TableCell>
+                    <TableCell><TimePicker value={day.closesAt} disabled={day.closed} label={`${NAMES[day.weekday]} closes`} onValueChange={() => state.saved = false} /></TableCell>
+                    <TableCell>
+                      <label class="hours-closed">
+                        <Checkbox checked={day.closed} onCheckedChange={() => state.saved = false} />
+                        Closed
+                      </label>
+                    </TableCell>
+                  </tr>
+                </tbody>
+              </table>
+            </Table>
+          </CardContent>
+        </Card>
 
         <div class="hours-foot row">
-          <span e:if={state.saved} class="hours-saved" role="status">Saved. The order page uses the new hours now.</span>
-          <span e:else></span>
-          <button type="submit" class={["is-primary", state.busy && "is-loading"]} disabled={state.busy}>Save hours</button>
+          <Button type="submit" variant="primary" loading={state.busy}>Save hours</Button>
         </div>
       </form>
     </Layout>

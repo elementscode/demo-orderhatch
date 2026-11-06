@@ -10,20 +10,8 @@
   color: var(--ink-soft);
 }
 
-.hours-table {
-  width: 100%;
-}
-
 .hours-table td {
   vertical-align: middle;
-}
-
-.hours-table input[type="time"] {
-  width: 8.5rem;
-}
-
-.hours-table tr.is-closed input[type="time"] {
-  opacity: var(--opacity-disabled);
 }
 
 .hours-closed {
@@ -35,13 +23,7 @@
 }
 
 .hours-foot {
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.hours-saved {
-  font-size: var(--text-sm);
-  color: var(--success);
+  justify-content: flex-end;
 }
 
 @media (max-width: 30rem) {
@@ -69,10 +51,14 @@
   .hours-table td:nth-child(4) {
     grid-area: closed;
     justify-self: end;
+    padding-inline-end: var(--space-1);
+  }
+
+  .hours-table td:not(:nth-child(4)) {
+    padding: 0;
   }
 
   .hours-table td {
-    padding: 0;
     border: 0;
   }
 
@@ -81,7 +67,7 @@
     font-weight: var(--weight-semibold);
   }
 
-  .hours-table input[type="time"] {
+  .hours-table .time-picker {
     width: 100%;
     min-width: 0;
   }

@@ -2,6 +2,8 @@ import "./style.css";
 import { redirect, session } from "@elements/app";
 import config from "#config";
 import { signout } from "#app/shared/services/auth";
+import { Button } from "@elements/ui/button";
+import { Toaster } from "@elements/ui/toast";
 
 export type Section = "menu" | "kitchen" | "sold-out" | "dashboard" | "admin-menu" | "hours";
 
@@ -34,7 +36,7 @@ function onSignout() {
 
         <div class="site-user row" e:if={session.isLoggedIn()}>
           <span class="site-user-name">{session.get("userName")}</span>
-          <button class="is-sm is-ghost" type="button" onclick={() => onSignout()}>Sign out</button>
+          <Button size="sm" variant="ghost" onclick={() => onSignout()}>Sign out</Button>
         </div>
       </div>
     </header>
@@ -49,6 +51,8 @@ function onSignout() {
         <a e:if={!session.isLoggedIn()} href="/signin">Staff sign in</a>
       </div>
     </footer>
+
+    <Toaster richColors />
   </div>
 </Layout>
 
