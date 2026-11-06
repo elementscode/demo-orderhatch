@@ -12,7 +12,7 @@ import { OrderForm, placeOrder } from "#app/shared/services/checkout";
 import { Alert } from "@elements/ui/alert";
 import { Badge } from "@elements/ui/badge";
 import { Button } from "@elements/ui/button";
-import { Card, CardAction, CardContent } from "@elements/ui/card";
+import { Card, CardContent } from "@elements/ui/card";
 import { Checkbox } from "@elements/ui/checkbox";
 import { Dialog, DialogBody } from "@elements/ui/dialog";
 import { Empty } from "@elements/ui/empty";
@@ -308,7 +308,7 @@ async function onPay(cart: Cart, details: Details) {
 
         <aside class="cart" aria-label="Your order">
           <Card title={cart.step === "cart" ? "Your order" : "Pickup details"} level={2}>
-            <CardAction slot="action"><Button e:if={cart.step === "details"} variant="ghost" size="sm" onclick={() => cart.step = "cart"}>Back</Button></CardAction>
+            <Button e:if={cart.step === "details"} slot="action" variant="ghost" size="sm" onclick={() => cart.step = "cart"}>Back</Button>
             <CardContent class="stack">
               <CartBody menu={menu} schedule={schedule} testMode={testMode} cart={cart} details={details} />
             </CardContent>

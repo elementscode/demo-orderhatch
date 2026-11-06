@@ -9,7 +9,7 @@ import { Alert } from "@elements/ui/alert";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogFooter } from "@elements/ui/alert-dialog";
 import { Badge } from "@elements/ui/badge";
 import { Button } from "@elements/ui/button";
-import { Card, CardAction } from "@elements/ui/card";
+import { Card } from "@elements/ui/card";
 import { Checkbox } from "@elements/ui/checkbox";
 import { Field } from "@elements/ui/field";
 import { Input } from "@elements/ui/input";
@@ -129,9 +129,7 @@ function onDelete(menu: LiveView<MenuItem>, draft: Draft, item: MenuItem) {
         </div>
 
         <Card e:for={category of categories} title={category.name} level={2}>
-          <CardAction slot="action">
-            <Button size="sm" onclick={() => onAddItem(menu, draft, category, groups)}>Add item</Button>
-          </CardAction>
+          <Button slot="action" size="sm" onclick={() => onAddItem(menu, draft, category, groups)}>Add item</Button>
 
           <ul class="menu-rows">
             <li e:for={item of itemsIn(menu, category.id, true)} class={["menu-row", item.hidden && "is-hidden"]}>
