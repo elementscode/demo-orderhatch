@@ -12,12 +12,12 @@ import { BarChart } from "@elements/ui/chart-bar";
 import { Empty } from "@elements/ui/empty";
 import { Table, TableCell, TableHead } from "@elements/ui/table";
 
-type HourBar = {
+interface HourBar {
   id: string;
   label: string;
   revenue: number;
   orders: number;
-};
+}
 
 interface TopItem {
   id: string;
@@ -161,7 +161,7 @@ function itemSummary(order: Ticket): string {
                         x="label"
                         label="Revenue by hour today"
                         class="revenue-chart"
-                        tooltip={{ formatter: (value) => money(Number(value)), footer: (row) => ordersLine(Number(row.orders)) }} />
+                        tooltip={{ formatter: (value) => money(Number(value)), footer: (row) => ordersLine(row.orders) }} />
             </CardContent>
           </Card>
 
