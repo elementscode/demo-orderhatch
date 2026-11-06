@@ -97,7 +97,7 @@
 
 @media (max-width: 40rem) {
   .menu-row {
-    grid-template-columns: 3.5rem minmax(0, 1fr) auto;
+    gap: var(--space-3);
     padding: var(--space-3) var(--space-4);
   }
 
